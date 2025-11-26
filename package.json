@@ -22,7 +22,10 @@
     "test:integration:watch": "pnpm run test:integration -- --watch",
     "test:unit": "jest --config ./test/jest.unit.ts",
     "test:unit:watch": "pnpm run test:unit -- --watch",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio"
   },
   "devDependencies": {
     "@commitlint/cli": "^18.6.1",
@@ -34,6 +37,7 @@
     "@types/node": "^20.17.6",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
+    "drizzle-kit": "^0.31.7",
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^9.1.0",
     "eslint-import-resolver-typescript": "^3.6.3",
@@ -50,7 +54,9 @@
   },
   "dependencies": {
     "@fastify/env": "^5.0.3",
+    "@libsql/client": "^0.15.15",
     "dotenv": "^16.4.5",
+    "drizzle-orm": "^0.44.7",
     "fastify": "^5.6.2",
     "firebase-admin": "^13.6.0"
   }

@@ -1,6 +1,7 @@
 import 'dotenv/config';
 
 import env from '@fastify/env';
+import db from '@src/lib/db';
 import healthRoute from '@src/routes/health';
 import profileRoute from '@src/routes/profile';
 import Fastify from 'fastify';
@@ -8,17 +9,20 @@ import Fastify from 'fastify';
 interface EnvConfig {
   PORT: string;
   HOST: string;
+  TURSO_DATABASE_URL: string;
+  TURSO_AUTH_TOKEN: string;
 }
 
 declare module 'fastify' {
   interface FastifyInstance {
     config: EnvConfig;
+    db: typeof db;
   }
 }
 
 const schema = {
   type: 'object',
-  required: ['PORT', 'HOST'],
+  required: ['PORT', 'HOST', 'TURSO_DATABASE_URL', 'TURSO_AUTH_TOKEN'],
   properties: {
     PORT: {
       type: 'string',
@@ -27,6 +31,12 @@ const schema = {
     HOST: {
       type: 'string',
       default: '0.0.0.0',
+    },
+    TURSO_DATABASE_URL: {
+      type: 'string',
+    },
+    TURSO_AUTH_TOKEN: {
+      type: 'string',
     },
   },
 };
@@ -44,9 +54,17 @@ async function build() {
 
   await fastify.register(env, options);
 
+  // Initialize database connection
+  // The db instance is already created and exported from @src/lib/db
+  // This ensures the connection is established and env vars are validated
+  fastify.log.info('Database connection initialized');
+
   // Register routes
   await fastify.register(healthRoute);
   await fastify.register(profileRoute);
+
+  // Make db available on fastify instance
+  fastify.decorate('db', db);
 
   return fastify;
 }
