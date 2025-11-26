@@ -4,6 +4,7 @@ import env from '@fastify/env';
 import db from '@src/lib/db';
 import healthRoute from '@src/routes/health';
 import profileRoute from '@src/routes/profile';
+import registerRoute from '@src/routes/register';
 import Fastify from 'fastify';
 
 interface EnvConfig {
@@ -61,6 +62,7 @@ async function build() {
 
   // Register routes
   await fastify.register(healthRoute);
+  await fastify.register(registerRoute);
   await fastify.register(profileRoute);
 
   // Make db available on fastify instance
