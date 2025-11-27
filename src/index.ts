@@ -4,6 +4,7 @@ import cors from '@fastify/cors';
 import env from '@fastify/env';
 import { db } from '@src/lib/db';
 import healthRoute from '@src/routes/health';
+import patientCaregiversRoute from '@src/routes/patient-caregivers';
 import profileRoute from '@src/routes/profile';
 import registerRoute from '@src/routes/register';
 import usersRoute from '@src/routes/users';
@@ -72,6 +73,7 @@ async function build() {
   await fastify.register(registerRoute);
   await fastify.register(profileRoute);
   await fastify.register(usersRoute);
+  await fastify.register(patientCaregiversRoute);
 
   // Make db available on fastify instance
   fastify.decorate('db', db);

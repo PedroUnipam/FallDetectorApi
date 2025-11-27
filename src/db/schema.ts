@@ -1,5 +1,5 @@
 import { relations } from 'drizzle-orm';
-import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { integer, sqliteTable, text, unique } from 'drizzle-orm/sqlite-core';
 
 export const users = sqliteTable('users', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -38,16 +38,48 @@ export const patients = sqliteTable('patients', {
     .$defaultFn(() => new Date()),
 });
 
-export const usersRelations = relations(users, ({ one }) => ({
+export const patientCaregivers = sqliteTable(
+  'patient_caregivers',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    patientId: integer('patient_id')
+      .notNull()
+      .references(() => patients.id, { onDelete: 'cascade' }),
+    caregiverId: integer('caregiver_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    createdAt: integer('created_at', { mode: 'timestamp' })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => ({
+    uniquePatientCaregiver: unique().on(table.patientId, table.caregiverId),
+  })
+);
+
+export const usersRelations = relations(users, ({ one, many }) => ({
   patient: one(patients, {
     fields: [users.id],
     references: [patients.userId],
   }),
+  patientsCaredFor: many(patientCaregivers),
 }));
 
-export const patientsRelations = relations(patients, ({ one }) => ({
+export const patientsRelations = relations(patients, ({ one, many }) => ({
   user: one(users, {
     fields: [patients.userId],
+    references: [users.id],
+  }),
+  caregivers: many(patientCaregivers),
+}));
+
+export const patientCaregiversRelations = relations(patientCaregivers, ({ one }) => ({
+  patient: one(patients, {
+    fields: [patientCaregivers.patientId],
+    references: [patients.id],
+  }),
+  caregiver: one(users, {
+    fields: [patientCaregivers.caregiverId],
     references: [users.id],
   }),
 }));
@@ -56,3 +88,5 @@ export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Patient = typeof patients.$inferSelect;
 export type NewPatient = typeof patients.$inferInsert;
+export type PatientCaregiver = typeof patientCaregivers.$inferSelect;
+export type NewPatientCaregiver = typeof patientCaregivers.$inferInsert;
