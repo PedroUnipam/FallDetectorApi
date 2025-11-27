@@ -1,11 +1,12 @@
 import {
+  events,
   type PatientCaregiver,
   patientCaregivers,
   patients,
   users,
 } from '@src/db/schema';
 import { authenticate } from '@src/plugins/auth';
-import { and, eq } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray } from 'drizzle-orm';
 import { FastifyPluginAsync } from 'fastify';
 
 interface LinkPatientCaregiverBody {
@@ -286,6 +287,120 @@ const patientCaregiversRoute: FastifyPluginAsync = async (fastify) => {
         .where(eq(patientCaregivers.patientId, patientId));
 
       return caregivers;
+    }
+  );
+
+  // GET /patient-caregivers/caregiver - List all patients for the logged-in caregiver
+  fastify.get(
+    '/patient-caregivers/caregiver',
+    {
+      preHandler: [authenticate],
+    },
+    async (request, reply) => {
+      const firebaseUid = request.user?.uid;
+
+      if (!firebaseUid) {
+        return reply.code(401).send({
+          error: 'Unauthorized',
+          message: 'User UID not found in token',
+        });
+      }
+
+      // Get logged-in user
+      const [loggedInUser] = await fastify.db
+        .select()
+        .from(users)
+        .where(eq(users.firebaseUid, firebaseUid))
+        .limit(1);
+
+      if (!loggedInUser) {
+        return reply.code(404).send({
+          error: 'Not Found',
+          message: 'User not found in database',
+        });
+      }
+
+      const caregiverId = loggedInUser.id;
+
+      // Calculate 24 hours ago timestamp
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+      // Fetch all patients for this caregiver
+      const patientsList = await fastify.db
+        .select({
+          id: patients.id,
+          userId: patients.userId,
+          street: patients.street,
+          city: patients.city,
+          state: patients.state,
+          zipCode: patients.zipCode,
+          dateOfBirth: patients.dateOfBirth,
+          createdAt: patients.createdAt,
+          updatedAt: patients.updatedAt,
+          user: {
+            id: users.id,
+            firebaseUid: users.firebaseUid,
+            email: users.email,
+            cpf: users.cpf,
+            name: users.name,
+            cellphone: users.cellphone,
+            createdAt: users.createdAt,
+            updatedAt: users.updatedAt,
+          },
+        })
+        .from(patientCaregivers)
+        .innerJoin(patients, eq(patients.id, patientCaregivers.patientId))
+        .innerJoin(users, eq(users.id, patients.userId))
+        .where(eq(patientCaregivers.caregiverId, caregiverId));
+
+      // Get patient user IDs
+      const patientUserIds = patientsList.map((p) => p.userId);
+
+      // Fetch all events for these patients in the last 24 hours
+      const recentEvents =
+        patientUserIds.length > 0
+          ? await fastify.db
+              .select({
+                id: events.id,
+                date: events.date,
+                type: events.type,
+                patientId: events.patientId,
+              })
+              .from(events)
+              .where(
+                and(
+                  inArray(events.patientId, patientUserIds),
+                  gte(events.date, twentyFourHoursAgo)
+                )
+              )
+              .orderBy(desc(events.date))
+          : [];
+
+      // Group events by patientId and get the most recent one for each
+      const lastEventsByPatient = recentEvents.reduce(
+        (acc, event) => {
+          if (
+            !acc[event.patientId] ||
+            new Date(event.date) > new Date(acc[event.patientId].date)
+          ) {
+            acc[event.patientId] = {
+              id: event.id,
+              date: event.date,
+              type: event.type,
+            };
+          }
+          return acc;
+        },
+        {} as Record<number, { id: number; date: Date; type: string }>
+      );
+
+      // Combine patients with their last events
+      const patientsWithLastEvent = patientsList.map((patient) => ({
+        ...patient,
+        lastEvent: lastEventsByPatient[patient.userId] || null,
+      }));
+
+      return patientsWithLastEvent;
     }
   );
 
