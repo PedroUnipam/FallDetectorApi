@@ -7,7 +7,83 @@ interface CreateEventBody {
   type: 'fall_1' | 'fall_2' | 'fall_3' | 'need_help' | 'ok';
 }
 
+interface CreateDeviceEventBody {
+  fallLevel: number;
+}
+
 const eventsRoute: FastifyPluginAsync = async (fastify) => {
+  // POST /devices/:deviceId/events - Create a new event from device (no auth required)
+  fastify.post<{ Params: { deviceId: string }; Body: CreateDeviceEventBody }>(
+    '/devices/:deviceId/events',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['deviceId'],
+          properties: {
+            deviceId: {
+              type: 'string',
+            },
+          },
+        },
+        body: {
+          type: 'object',
+          required: ['fallLevel'],
+          properties: {
+            fallLevel: {
+              type: 'number',
+              minimum: 1,
+              maximum: 3,
+            },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { deviceId } = request.params;
+      const { fallLevel } = request.body;
+
+      if (!deviceId || typeof deviceId !== 'string' || deviceId.trim().length === 0) {
+        return reply.code(400).send({
+          error: 'Bad Request',
+          message: 'Device ID is required',
+        });
+      }
+
+      if (!fallLevel || typeof fallLevel !== 'number' || fallLevel < 1 || fallLevel > 3) {
+        return reply.code(400).send({
+          error: 'Bad Request',
+          message: 'fallLevel must be a number between 1 and 3',
+        });
+      }
+
+      // Find user by device ID
+      const [deviceUser] = await fastify.db
+        .select()
+        .from(users)
+        .where(eq(users.device, deviceId.trim()))
+        .limit(1);
+
+      if (!deviceUser) {
+        return reply.code(404).send({
+          error: 'Not Found',
+          message: 'Device not found or not linked to any user',
+        });
+      }
+
+      // Convert fallLevel to event type format
+      const eventType = `fall_${fallLevel}` as 'fall_1' | 'fall_2' | 'fall_3';
+
+      // Create event with inferred patientId (user ID) and date
+      await fastify.db.insert(events).values({
+        type: eventType,
+        patientId: deviceUser.id,
+      });
+
+      return reply.code(204).send();
+    }
+  );
+
   // POST /events - Create a new event
   fastify.post<{ Body: CreateEventBody }>(
     '/events',
