@@ -2,12 +2,13 @@ import { events, patientCaregivers, patients, users } from '@src/db/schema';
 import { db } from '@src/lib/db';
 import { authenticate } from '@src/plugins/auth';
 import { desc, eq, inArray } from 'drizzle-orm';
-import { FastifyPluginAsync } from 'fastify';
+import { FastifyLoggerInstance, FastifyPluginAsync } from 'fastify';
 
 /**
  * Sends push notifications to caregivers of a patient
  */
 async function notifyCaregivers(
+  log: FastifyLoggerInstance,
   dbInstance: typeof db,
   patientUserId: number,
   patientName: string
@@ -47,7 +48,7 @@ async function notifyCaregivers(
           body: patientName,
         };
 
-        console.log({ body });
+        log.info({ body });
         const response = await fetch('https://exp.host/--/api/v2/push/send', {
           method: 'POST',
           headers: {
@@ -57,15 +58,17 @@ async function notifyCaregivers(
         });
 
         if (!response.ok) {
-          console.error(
+          log.error(
             `Failed to send notification to caregiver ${caregiver.id}: ${response.statusText}`
           );
         }
 
         const responseBody = await response.json();
-        console.log(responseBody);
+        log.info({ responseBody });
       } catch (error) {
-        console.error(`Error sending notification to caregiver ${caregiver.id}:`, error);
+        log.error(
+          `Error sending notification to caregiver ${caregiver.id}: ${error?.toString()}`
+        );
       }
     });
 
@@ -151,7 +154,7 @@ const eventsRoute: FastifyPluginAsync = async (fastify) => {
       });
 
       // Notify caregivers asynchronously (don't block response)
-      notifyCaregivers(fastify.db, deviceUser.id, deviceUser.name).catch(
+      notifyCaregivers(fastify.log, fastify.db, deviceUser.id, deviceUser.name).catch(
         (error: unknown) => {
           fastify.log.error({ err: error }, 'Error notifying caregivers');
         }
@@ -212,7 +215,7 @@ const eventsRoute: FastifyPluginAsync = async (fastify) => {
       });
 
       // Notify caregivers asynchronously (don't block response)
-      notifyCaregivers(fastify.db, existingUser.id, existingUser.name).catch(
+      notifyCaregivers(fastify.log, fastify.db, existingUser.id, existingUser.name).catch(
         (error: unknown) => {
           fastify.log.error({ err: error }, 'Error notifying caregivers');
         }
