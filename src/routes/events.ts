@@ -1,7 +1,70 @@
 import { events, patientCaregivers, patients, users } from '@src/db/schema';
+import { db } from '@src/lib/db';
 import { authenticate } from '@src/plugins/auth';
 import { desc, eq, inArray } from 'drizzle-orm';
 import { FastifyPluginAsync } from 'fastify';
+
+/**
+ * Sends push notifications to caregivers of a patient
+ */
+async function notifyCaregivers(
+  dbInstance: typeof db,
+  patientUserId: number,
+  patientName: string
+): Promise<void> {
+  // Find the patient record
+  const [patient] = await dbInstance
+    .select()
+    .from(patients)
+    .where(eq(patients.userId, patientUserId))
+    .limit(1);
+
+  if (!patient) {
+    // Patient record doesn't exist, no caregivers to notify
+    return;
+  }
+
+  // Find all caregivers for this patient
+  const caregivers = await dbInstance
+    .select({
+      id: users.id,
+      name: users.name,
+      expoNotificationToken: users.expoNotificationToken,
+    })
+    .from(patientCaregivers)
+    .innerJoin(users, eq(users.id, patientCaregivers.caregiverId))
+    .where(eq(patientCaregivers.patientId, patient.id));
+
+  // Send notifications to caregivers who have tokens
+  const notificationPromises = caregivers
+    .filter((caregiver) => caregiver.expoNotificationToken)
+    .map(async (caregiver) => {
+      try {
+        const response = await fetch('https://exp.host/--/api/v2/push/send', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            to: caregiver.expoNotificationToken,
+            title: 'queda',
+            body: patientName,
+          }),
+        });
+
+        if (!response.ok) {
+          console.error(
+            `Failed to send notification to caregiver ${caregiver.id}: ${response.statusText}`
+          );
+        }
+      } catch (error) {
+        console.error(`Error sending notification to caregiver ${caregiver.id}:`, error);
+      }
+    });
+
+  // Wait for all notifications to be sent (don't block on errors)
+  await Promise.allSettled(notificationPromises);
+}
 
 interface CreateEventBody {
   type: 'fall_1' | 'fall_2' | 'fall_3' | 'need_help' | 'ok';
@@ -80,6 +143,13 @@ const eventsRoute: FastifyPluginAsync = async (fastify) => {
         patientId: deviceUser.id,
       });
 
+      // Notify caregivers asynchronously (don't block response)
+      notifyCaregivers(fastify.db, deviceUser.id, deviceUser.name).catch(
+        (error: unknown) => {
+          fastify.log.error({ err: error }, 'Error notifying caregivers');
+        }
+      );
+
       return reply.code(204).send();
     }
   );
@@ -133,6 +203,13 @@ const eventsRoute: FastifyPluginAsync = async (fastify) => {
         type,
         patientId: existingUser.id,
       });
+
+      // Notify caregivers asynchronously (don't block response)
+      notifyCaregivers(fastify.db, existingUser.id, existingUser.name).catch(
+        (error: unknown) => {
+          fastify.log.error({ err: error }, 'Error notifying caregivers');
+        }
+      );
 
       return reply.code(204).send();
     }
