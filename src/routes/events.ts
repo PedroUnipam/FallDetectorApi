@@ -36,20 +36,24 @@ async function notifyCaregivers(
     .where(eq(patientCaregivers.patientId, patient.id));
 
   // Send notifications to caregivers who have tokens
+  console.log({ caregivers });
   const notificationPromises = caregivers
     .filter((caregiver) => caregiver.expoNotificationToken)
     .map(async (caregiver) => {
       try {
+        const body = {
+          to: caregiver.expoNotificationToken,
+          title: 'queda',
+          body: patientName,
+        };
+
+        console.log({ body });
         const response = await fetch('https://exp.host/--/api/v2/push/send', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            to: caregiver.expoNotificationToken,
-            title: 'queda',
-            body: patientName,
-          }),
+          body: JSON.stringify(body),
         });
 
         if (!response.ok) {
@@ -57,6 +61,9 @@ async function notifyCaregivers(
             `Failed to send notification to caregiver ${caregiver.id}: ${response.statusText}`
           );
         }
+
+        const responseBody = await response.json();
+        console.log(responseBody);
       } catch (error) {
         console.error(`Error sending notification to caregiver ${caregiver.id}:`, error);
       }
