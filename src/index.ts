@@ -3,6 +3,7 @@ import 'dotenv/config';
 import cors from '@fastify/cors';
 import env from '@fastify/env';
 import { db } from '@src/lib/db';
+import deviceRoute from '@src/routes/device';
 import eventsRoute from '@src/routes/events';
 import healthRoute from '@src/routes/health';
 import notificationTokenRoute from '@src/routes/notification-token';
@@ -77,6 +78,7 @@ async function build() {
   await fastify.register(usersRoute);
   await fastify.register(patientCaregiversRoute);
   await fastify.register(notificationTokenRoute);
+  await fastify.register(deviceRoute);
   await fastify.register(eventsRoute);
 
   // Make db available on fastify instance

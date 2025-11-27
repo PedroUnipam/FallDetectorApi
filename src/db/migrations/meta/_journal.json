@@ -50,6 +50,13 @@
       "when": 1764257778176,
       "tag": "0006_productive_chat",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1764271260363,
+      "tag": "0007_broken_the_watchers",
+      "breakpoints": true
     }
   ]
 }
