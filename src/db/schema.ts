@@ -11,6 +11,7 @@ export const users = sqliteTable('users', {
     .notNull()
     .$defaultFn(() => true),
   cellphone: text('cellphone').notNull(),
+  expoNotificationToken: text('expo_notification_token'),
   createdAt: integer('created_at', { mode: 'timestamp' })
     .notNull()
     .$defaultFn(() => new Date()),
