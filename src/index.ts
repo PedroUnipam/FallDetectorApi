@@ -1,7 +1,8 @@
 import 'dotenv/config';
 
+import cors from '@fastify/cors';
 import env from '@fastify/env';
-import db from '@src/lib/db';
+import { db } from '@src/lib/db';
 import healthRoute from '@src/routes/health';
 import profileRoute from '@src/routes/profile';
 import registerRoute from '@src/routes/register';
@@ -55,6 +56,11 @@ async function build() {
   });
 
   await fastify.register(env, options);
+
+  // Register CORS plugin - allow all origins and methods
+  await fastify.register(cors, {
+    origin: true,
+  });
 
   // Initialize database connection
   // The db instance is already created and exported from @src/lib/db
