@@ -44,8 +44,8 @@ async function notifyCaregivers(
       try {
         const body = {
           to: caregiver.expoNotificationToken,
-          title: 'queda',
-          body: patientName,
+          title: 'Novo evento',
+          body: `O paciente ${patientName} teve um novo evento`,
         };
 
         log.info({ body });
