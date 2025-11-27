@@ -157,7 +157,73 @@ const patientCaregiversRoute: FastifyPluginAsync = async (fastify) => {
     }
   );
 
-  // GET /patient-caregivers/patient - List all caregivers for the logged-in patient
+  // GET /patient-caregivers - List all caregivers for the logged-in patient
+  fastify.get(
+    '/patient-caregivers',
+    {
+      preHandler: [authenticate],
+    },
+    async (request, reply) => {
+      const firebaseUid = request.user?.uid;
+
+      if (!firebaseUid) {
+        return reply.code(401).send({
+          error: 'Unauthorized',
+          message: 'User UID not found in token',
+        });
+      }
+
+      // Get logged-in user
+      const [loggedInUser] = await fastify.db
+        .select()
+        .from(users)
+        .where(eq(users.firebaseUid, firebaseUid))
+        .limit(1);
+
+      if (!loggedInUser) {
+        return reply.code(404).send({
+          error: 'Not Found',
+          message: 'User not found in database',
+        });
+      }
+
+      // Validate patient exists
+      const [patient] = await fastify.db
+        .select()
+        .from(patients)
+        .where(eq(patients.userId, loggedInUser.id))
+        .limit(1);
+
+      if (!patient) {
+        return reply.code(404).send({
+          error: 'Not Found',
+          message: 'Patient record not found for logged-in user',
+        });
+      }
+
+      const patientId = patient.id;
+
+      // Fetch all caregivers for this patient
+      const caregivers = await fastify.db
+        .select({
+          id: users.id,
+          firebaseUid: users.firebaseUid,
+          email: users.email,
+          cpf: users.cpf,
+          name: users.name,
+          cellphone: users.cellphone,
+          createdAt: users.createdAt,
+          updatedAt: users.updatedAt,
+        })
+        .from(patientCaregivers)
+        .innerJoin(users, eq(users.id, patientCaregivers.caregiverId))
+        .where(eq(patientCaregivers.patientId, patientId));
+
+      return caregivers;
+    }
+  );
+
+  // GET /patient-caregivers/patient - List all caregivers for the logged-in patient (alias)
   fastify.get(
     '/patient-caregivers/patient',
     {
