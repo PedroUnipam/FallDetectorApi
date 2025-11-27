@@ -85,9 +85,35 @@ export const patientCaregiversRelations = relations(patientCaregivers, ({ one })
   }),
 }));
 
+export const events = sqliteTable('events', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  date: integer('date', { mode: 'timestamp' })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  type: text('type', {
+    enum: ['fall_1', 'fall_2', 'fall_3', 'need_help', 'ok'],
+  }).notNull(),
+  patientId: integer('patient_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+});
+
+export const eventsRelations = relations(events, ({ one }) => ({
+  patient: one(users, {
+    fields: [events.patientId],
+    references: [users.id],
+  }),
+}));
+
+export const usersEventsRelations = relations(users, ({ many }) => ({
+  events: many(events),
+}));
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Patient = typeof patients.$inferSelect;
 export type NewPatient = typeof patients.$inferInsert;
 export type PatientCaregiver = typeof patientCaregivers.$inferSelect;
 export type NewPatientCaregiver = typeof patientCaregivers.$inferInsert;
+export type Event = typeof events.$inferSelect;
+export type NewEvent = typeof events.$inferInsert;
