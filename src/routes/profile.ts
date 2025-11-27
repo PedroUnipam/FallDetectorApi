@@ -44,6 +44,7 @@ const profileRoute: FastifyPluginAsync = async (fastify) => {
           cellphone: users.cellphone,
           createdAt: users.createdAt,
           updatedAt: users.updatedAt,
+          device: users.device,
           patient: {
             id: patients.id,
             street: patients.street,
